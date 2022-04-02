@@ -26,6 +26,7 @@ func main() {
 	file, err := os.Open(cPath)
 	if err != nil {
 		log.Fatalf("Error opening file %s", cPath)
+		os.Exit(1)
 	}
 	defer file.Close()
 
@@ -34,6 +35,7 @@ func main() {
 
 	if err != nil {
 		log.Fatalf("Error parsing file %s", cPath)
+		os.Exit(1)
 	}
 	go func() {
 		time.Sleep(time.Duration(lim) * time.Second)
