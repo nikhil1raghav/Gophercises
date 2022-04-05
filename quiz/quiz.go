@@ -1,61 +1,82 @@
 package main
 
 import (
-	"bufio"
 	"encoding/csv"
 	"flag"
 	"fmt"
-	"log"
 	"os"
+	"os/signal"
+	"strings"
 	"time"
 )
 
-func endGame(score int) {
-	fmt.Printf("You scored %d points\n", score)
-	os.Exit(0)
+type problem struct {
+	que string
+	ans string
 }
+
 func main() {
-	limit := flag.Int("limit", 20, "number of seconds the game will run for")
-	csvPath := flag.String("csv", "./questions.csv", "CSV file with questions and answers")
+	csvFile := flag.String("csv", "questions.csv", "csv file that has quiz data")
+	timeLimit := flag.Int("limit", 30, "time in seconds that quiz will run for")
 	flag.Parse()
-	lim := *limit
-	cPath := *csvPath
 
-	fmt.Printf("Limit %d \t filePath : %s\n", lim, cPath)
-
-	file, err := os.Open(cPath)
+	file, err := os.Open(*csvFile)
 	if err != nil {
-		log.Fatalf("Error opening file %s", cPath)
+		fmt.Println("Error opening csv file : ", *csvFile)
 		os.Exit(1)
 	}
-	defer file.Close()
 
 	csvReader := csv.NewReader(file)
-	data, err := csvReader.ReadAll()
-
+	lines, err := csvReader.ReadAll()
 	if err != nil {
-		log.Fatalf("Error parsing file %s", cPath)
+		fmt.Println("Error in parsing csv file")
 		os.Exit(1)
 	}
-	go func() {
-		time.Sleep(time.Duration(lim) * time.Second)
-		fmt.Println("Time up, Bye bye")
-		os.Exit(0)
-	}()
-
-	var ans string
+	problems := parseLines(lines)
 	score := 0
-	input := bufio.NewScanner(os.Stdin)
-	for idx, fields := range data {
-		fmt.Printf("Q%d. %s\n", idx+1, fields[0])
-		input.Scan()
-		ans = input.Text()
-		if ans == fields[1] {
-			fmt.Printf("Correct Answer \u2705 \n")
-			score++
-		} else {
-			fmt.Printf("Incorrect Answer \u274C \n")
+	sigChan := make(chan os.Signal)
+	signal.Notify(sigChan, os.Kill)
+	signal.Notify(sigChan, os.Interrupt)
+
+	timer := time.NewTimer(time.Duration(*timeLimit * int(time.Second)))
+	for id, prob := range problems {
+		fmt.Printf("Problem #%d: %s  \n", id+1, prob.que)
+		answerChan := make(chan string)
+		go func() {
+			var answer string
+			fmt.Scan(&answer)
+			answerChan <- answer
+
+		}()
+		select {
+		case <-timer.C:
+			endGame(score, len(problems))
+		case <-sigChan:
+			endGame(score, len(problems))
+		case answer := <-answerChan:
+			if answer == prob.ans {
+				score++
+				fmt.Println("Correct \u2705")
+			} else {
+				fmt.Println("Incorrect \u274c")
+			}
 		}
 	}
-	endGame(score)
+}
+func endGame(score, total int) {
+	fmt.Printf("You scored %d out of %d\n", score, total)
+	os.Exit(0)
+}
+
+func parseLines(lines [][]string) []problem {
+	var problems []problem
+	for _, line := range lines {
+		if len(line) < 2 {
+			fmt.Println("Less elements to form a complete problem, skipping...")
+			continue
+		}
+		problems = append(problems, problem{que: line[0], ans: strings.TrimSpace(line[1])})
+	}
+	return problems
+
 }
