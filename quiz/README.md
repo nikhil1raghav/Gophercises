@@ -25,7 +25,7 @@
 - `Timer` sends a message to a channel after time expires
 - A datatype for problems
 - A goroutine to get answers which pushes the answer in a channel, so that answers are non-blocking and not keep the program waiting after time expires
-- similar treatment to listen for SIGTERM, SIGKILL . Registered a channel to be notified when any such signal is received and then it will call endGame
+- similar treatment to listen for SIGTERM, SIGKILL . Registered a channel to be notified when any such signal is received and then it will call 
 
 
 
